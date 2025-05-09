@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="title">Buffett True‑Cost Calculator</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Merriweather&display=swap" rel="stylesheet">
+<style>
+:root { --bg:#FFF; --text:#111; --highlight:#333; --border:#DDD; --muted:#666; }
+@media (prefers-color-scheme:dark) {
+ :root { --bg:#121212; --text:#EEE; --highlight:#444; --border:#333; --muted:#888; }
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;}
+body{font-family:"Merriweather",Georgia,serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;}
+main{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:2rem 1rem;gap:2rem;}
+blockquote{position:relative;font-style:italic;text-align:center;font-size:clamp(1.3rem,2vw,1.6rem);max-width:600px;}
+blockquote::before,blockquote::after{content:"—";position:absolute;top:50%;transform:translateY(-50%);font-weight:bold;font-size:1.2em;color:var(--highlight);}
+blockquote::before{left:-1.5rem;}blockquote::after{right:-1.5rem;}
+blockquote small{display:block;font-size:0.8rem;color:var(--muted);margin-top:0.25rem;}
+h2{font-size:1rem;font-weight:normal;text-align:center;color:var(--muted);max-width:340px;}
+.container{width:100%;max-width:300px;display:flex;flex-direction:column;gap:1.1rem;}
+label{font-size:0.85rem;}
+input[type=number]{width:100%;border:none;border-bottom:1px solid var(--border);padding:0.7rem 0;font-size:1rem;background:transparent;color:var(--text);transition:border-color .2s;-moz-appearance:textfield;}
+input[type=number]:focus{border-color:#555;outline:none;}
+input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{ -webkit-appearance:none;margin:0;}
+.freq-wrap{display:flex;gap:.5rem;flex-wrap:wrap;}
+.freq{padding:.35rem .8rem;border:1px solid var(--border);border-radius:999px;font-size:.75rem;cursor:pointer;user-select:none;transition:background .15s,border-color .15s;}
+.freq.selected{background:var(--highlight);color:var(--bg);border-color:var(--highlight);}
+.freq:hover:not(.selected){background:var(--border);}
+.preset-wrap{display:flex;gap:.5rem;flex-wrap:wrap;white-space:nowrap;}
+.preset{padding:.3rem .65rem;border:1px solid var(--border);border-radius:999px;font-size:.75rem;cursor:pointer;transition:background .15s;}
+.preset:hover{background:var(--border);}
+#output{display:flex;flex-direction:column;align-items:center;gap:.75rem;}
+.result{font-size:clamp(2.2rem,4.5vw,3.2rem);font-weight:bold;color:var(--highlight);position:relative;}
+.tooltip{position:absolute;left:calc(100% + 12px);top:50%;transform:translateY(-50%);
+ background:var(--highlight);color:var(--bg);padding:.75rem 1rem;border-radius:4px;font-size:.9rem;box-shadow:0 0 8px #0004;
+ max-width:360px;width:320px;opacity:0;pointer-events:none;transition:opacity .2s;white-space:pre-line;}
+.result:hover .tooltip{opacity:1;}
+#chart{width:300px;height:80px;} svg{width:100%;height:100%;}.sparkline-path{fill:none;stroke:var(--highlight);stroke-width:2;}
+/* FAQ styles */
+#faq{max-width:600px;width:100%;margin-top:2rem;}
+#faq h3{font-size:1.1rem;margin:.5rem 0;color:var(--highlight);}
+details{border:1px solid var(--border);border-radius:6px;padding:.6rem .9rem;margin-bottom:.6rem;background:var(--bg);transition:background .15s;}
+details[open]{background:var(--border);}
+summary{cursor:pointer;font-weight:600;font-size:0.9rem;}
+summary::-webkit-details-marker{display:none;}
+details p{font-size:0.85rem;line-height:1.45;margin-top:.5rem;color:var(--text);}
+footer{text-align:center;font-size:.72rem;color:var(--muted);line-height:1.4;padding:1rem 0 1.5rem;}
+/* Language selector styles */
+.lang-selector{position:absolute;top:1rem;right:1rem;display:flex;gap:.5rem;}
+.lang-btn{padding:.3rem .6rem;border:1px solid var(--border);border-radius:4px;font-size:.75rem;background:transparent;color:var(--text);cursor:pointer;transition:background .15s;}
+.lang-btn.active{background:var(--highlight);color:var(--bg);border-color:var(--highlight);}
+.lang-btn:hover:not(.active){background:var(--border);}
+</style>
+</head>
+<body>
+<div class="lang-selector">
+  <button class="lang-btn active" data-lang="en">EN</button>
+  <button class="lang-btn" data-lang="es">ES</button>
+</div>
+<main>
+  <blockquote data-i18n="quote">"I don't get haircuts—it costs thousands of dollars!"
+    <small data-i18n="quoteAttribution">— Warren Buffett</small>
+  </blockquote>
+
+  <h2 data-i18n="subtitle">Price, frequency, and your age reveal its true cost at 65.</h2>
+
+  <div class="container">
+    <label for="price" data-i18n="priceLabel">Price ($)</label>
+    <input type="number" id="price" value="20" min="0.01" step="0.01">
+    <div class="freq-wrap">
+      <span class="freq selected" data-freq="one" data-i18n="freqOne">one‑off</span>
+      <span class="freq" data-freq="daily" data-i18n="freqDaily">daily</span>
+      <span class="freq" data-freq="monthly" data-i18n="freqMonthly">monthly</span>
+      <span class="freq" data-freq="yearly" data-i18n="freqYearly">yearly</span>
+    </div>
+    <label for="age" data-i18n="ageLabel">Your Age</label>
+    <input type="number" id="age" value="30" min="1" max="79" step="1">
+  </div>
+
+  <div class="preset-wrap">
+    <span class="preset" data-price="25" data-i18n="presetHaircut">Haircut</span>
+    <span class="preset" data-price="999" data-i18n="presetIphone">iPhone</span>
+    <span class="preset" data-price="50" data-i18n="presetDinner">Dinner</span>
+    <span class="preset" data-price="4" data-i18n="presetCoffee">Coffee</span>
+  </div>
+
+  <div id="output">
+    <div class="result" id="result">$0<span class="tooltip" id="tooltip"></span></div>
+    <div id="chart"><svg viewBox="0 0 100 40" preserveAspectRatio="none"><path id="spark" class="sparkline-path" d=""></path></svg></div>
+  </div>
+
+  <!-- FAQ Section -->
+  <section id="faq">
+    <h3 data-i18n="faqTitle">Frequently Asked Questions</h3>
+
+    <details>
+      <summary data-i18n="faq1Title">What is this tool and how do I use it?</summary>
+      <p data-i18n="faq1Content">Enter the cost of something you're thinking of buying, choose how often you spend that amount, and input your age. The calculator shows what that money could grow into if you invested it until retirement—helping you judge a purchase's <em>real</em> cost.</p>
+    </details>
+
+    <details>
+      <summary data-i18n="faq2Title">How does compound interest actually work?</summary>
+      <p data-i18n="faq2Content">Compound interest is "interest on interest." Each year your investment earns returns, and those returns themselves begin earning returns. Over decades, this snowball effect accelerates growth dramatically.</p>
+    </details>
+
+    <details>
+      <summary data-i18n="faq3Title">Where does the 7 % return assumption come from?</summary>
+      <p data-i18n="faq3Content">7 % reflects the long‑term average annual total return of diversified stock‑market index funds after inflation. While yearly returns swing, history shows that broad, low‑cost investing has delivered about this level over many decades.</p>
+    </details>
+
+    <details>
+      <summary data-i18n="faq4Title">How do recurring expenses get compounded?</summary>
+      <p data-i18n="faq4Content">For daily, monthly, or yearly spends we apply the future‑value‑of‑annuity formula, adding each contribution and letting every dollar compound until retirement.</p>
+    </details>
+
+    <details>
+      <summary data-i18n="faq5Title">Why is starting early more important than investing big later?</summary>
+      <p data-i18n="faq5Content">Time in the market beats timing the market. Dollars invested earlier enjoy more compounding cycles, so even small early contributions can outgrow larger later ones.</p>
+    </details>
+
+    <details>
+      <summary data-i18n="faq6Title">How do I start investing if I've never done it before?</summary>
+      <p data-i18n="faq6Content">A simple way is to open a low‑cost brokerage account and purchase a broad market index fund (e.g., ETFs tracking the S&amp;P 500 or global indices). Automate contributions, stay diversified, and avoid high fees.</p>
+    </details>
+
+  </section>
+
+</main>
+
+<footer data-i18n="footer">Vibecoded © 2025</footer>
+
+<script>
+const params=new URLSearchParams(location.search);
+const price=document.getElementById('price');
+const age=document.getElementById('age');
+const result=document.getElementById('result');
+const tip=document.getElementById('tooltip');
+const spark=document.getElementById('spark');
+const freqBtns=[...document.querySelectorAll('.freq')];
+const presetBtns=[...document.querySelectorAll('.preset')];
+const langBtns=[...document.querySelectorAll('.lang-btn')];
+
+let freq='one';
+let retire=params.has('retire')?+params.get('retire'):65;
+let rate=params.has('rate')?+params.get('rate'):0.07;
+const death=80;
+
+// Translations dictionary
+const translations = {
+  en: {
+    title: "Buffett True‑Cost Calculator",
+    quote: "I don't get haircuts—it costs thousands of dollars!",
+    quoteAttribution: "— Warren Buffett",
+    subtitle: "Price, frequency, and your age reveal its true cost at 65.",
+    priceLabel: "Price ($)",
+    freqOne: "one‑off",
+    freqDaily: "daily",
+    freqMonthly: "monthly",
+    freqYearly: "yearly",
+    ageLabel: "Your Age",
+    presetHaircut: "Haircut",
+    presetIphone: "iPhone",
+    presetDinner: "Dinner",
+    presetCoffee: "Coffee",
+    faqTitle: "Frequently Asked Questions",
+    faq1Title: "What is this tool and how do I use it?",
+    faq1Content: "Enter the cost of something you're thinking of buying, choose how often you spend that amount, and input your age. The calculator shows what that money could grow into if you invested it until retirement—helping you judge a purchase's real cost.",
+    faq2Title: "How does compound interest actually work?",
+    faq2Content: "Compound interest is \"interest on interest.\" Each year your investment earns returns, and those returns themselves begin earning returns. Over decades, this snowball effect accelerates growth dramatically.",
+    faq3Title: "Where does the 7 % return assumption come from?",
+    faq3Content: "7 % reflects the long‑term average annual total return of diversified stock‑market index funds after inflation. While yearly returns swing, history shows that broad, low‑cost investing has delivered about this level over many decades.",
+    faq4Title: "How do recurring expenses get compounded?",
+    faq4Content: "For daily, monthly, or yearly spends we apply the future‑value‑of‑annuity formula, adding each contribution and letting every dollar compound until retirement.",
+    faq5Title: "Why is starting early more important than investing big later?",
+    faq5Content: "Time in the market beats timing the market. Dollars invested earlier enjoy more compounding cycles, so even small early contributions can outgrow larger later ones.",
+    faq6Title: "How do I start investing if I've never done it before?",
+    faq6Content: "A simple way is to open a low‑cost brokerage account and purchase a broad market index fund (e.g., ETFs tracking the S&P 500 or global indices). Automate contributions, stay diversified, and avoid high fees.",
+    footer: "Vibecoded © 2025",
+    by: "by", // for tooltip
+    to: "to" // for tooltip
+  },
+  es: {
+    title: "Calculadora de Costo Real de Buffett",
+    quote: "¡No me corto el pelo, cuesta miles de dólares!",
+    quoteAttribution: "— Warren Buffett",
+    subtitle: "El precio, la frecuencia y tu edad revelan su costo real a los 65 años.",
+    priceLabel: "Precio ($)",
+    freqOne: "único",
+    freqDaily: "diario",
+    freqMonthly: "mensual",
+    freqYearly: "anual",
+    ageLabel: "Tu Edad",
+    presetHaircut: "Corte de pelo",
+    presetIphone: "iPhone",
+    presetDinner: "Cena",
+    presetCoffee: "Café",
+    faqTitle: "Preguntas Frecuentes",
+    faq1Title: "¿Qué es esta herramienta y cómo la uso?",
+    faq1Content: "Ingresa el costo de algo que estás pensando comprar, elige con qué frecuencia gastas esa cantidad e ingresa tu edad. La calculadora muestra en qué podría convertirse ese dinero si lo invirtieras hasta la jubilación, ayudándote a juzgar el costo real de una compra.",
+    faq2Title: "¿Cómo funciona realmente el interés compuesto?",
+    faq2Content: "El interés compuesto es \"interés sobre interés\". Cada año tu inversión genera rendimientos, y esos rendimientos comienzan a generar sus propios rendimientos. A lo largo de décadas, este efecto de bola de nieve acelera dramáticamente el crecimiento.",
+    faq3Title: "¿De dónde viene la suposición de rendimiento del 7 %?",
+    faq3Content: "El 7 % refleja el rendimiento promedio anual a largo plazo de los fondos de índice del mercado de valores diversificados después de la inflación. Aunque los rendimientos anuales fluctúan, la historia muestra que la inversión amplia y de bajo costo ha entregado aproximadamente este nivel durante muchas décadas.",
+    faq4Title: "¿Cómo se calculan los gastos recurrentes?",
+    faq4Content: "Para gastos diarios, mensuales o anuales aplicamos la fórmula del valor futuro de la anualidad, sumando cada contribución y permitiendo que cada dólar se capitalice hasta la jubilación.",
+    faq5Title: "¿Por qué es más importante comenzar temprano que invertir mucho después?",
+    faq5Content: "El tiempo en el mercado supera al momento del mercado. Los dólares invertidos antes disfrutan de más ciclos de capitalización, por lo que incluso pequeñas contribuciones tempranas pueden superar a otras mayores posteriores.",
+    faq6Title: "¿Cómo comienzo a invertir si nunca lo he hecho antes?",
+    faq6Content: "Una forma simple es abrir una cuenta de corretaje de bajo costo y comprar un fondo de índice de mercado amplio (por ejemplo, ETFs que siguen el S&P 500 o índices globales). Automatiza las contribuciones, mantente diversificado y evita las tarifas altas.",
+    footer: "Vibecoded © 2025",
+    by: "a los", // for tooltip
+    to: "a los" // for tooltip
+  }
+};
+
+// Language detection and application
+function detectLanguage() {
+  const userLang = navigator.language || navigator.userLanguage;
+  return userLang.startsWith('es') ? 'es' : 'en';
+}
+
+function applyTranslations(lang) {
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-i18n]').forEach(element => {
+    const key = element.getAttribute('data-i18n');
+    if (translations[lang][key]) {
+      if (element.tagName === 'INPUT' && element.type === 'text') {
+        element.placeholder = translations[lang][key];
+      } else {
+        element.innerHTML = translations[lang][key];
+      }
+    }
+  });
+  
+  // Update language buttons
+  langBtns.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.lang === lang);
+  });
+  
+  // Recalculate to update tooltip with translated text
+  calc();
+}
+
+// Language button event listeners
+langBtns.forEach(btn => btn.addEventListener('click', () => {
+  applyTranslations(btn.dataset.lang);
+}));
+
+if(params.has('price')) price.value=params.get('price');
+if(params.has('age')) age.value=params.get('age');
+if(params.has('freq')){
+ const el=document.querySelector('.freq[data-freq="'+params.get('freq')+'"]');
+ if(el){freqBtns.forEach(b=>b.classList.remove('selected'));el.classList.add('selected');freq=params.get('freq');}
+}
+
+freqBtns.forEach(btn=>btn.addEventListener('click',()=>{
+ freqBtns.forEach(b=>b.classList.remove('selected'));
+ btn.classList.add('selected');
+ freq=btn.dataset.freq;
+ calc();
+}));
+presetBtns.forEach(btn=>btn.addEventListener('click',()=>{price.value=btn.dataset.price;calc();}));
+[price,age].forEach(el=>el.addEventListener('input',calc));
+
+function annuity(P,yrs,m){const r=rate/m;const n=m*yrs;return P*((Math.pow(1+r,n)-1)/r);}
+function fv(P,yrs){return P*Math.pow(1+rate,yrs);}
+function toRetire(P,yrs){
+ if(freq==='one') return fv(P,yrs);
+ if(freq==='daily')return annuity(P,yrs,365);
+ if(freq==='monthly')return annuity(P,yrs,12);
+ return annuity(P,yrs,1);
+}
+function animate(from,to){
+ const dur=400,start=performance.now();
+ function step(t){
+  const p=Math.min((t-start)/dur,1);
+  const currentLang = document.documentElement.lang;
+  const formatter = new Intl.NumberFormat(currentLang, { 
+    style: 'currency', 
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0 
+  });
+  const value = Math.round(from+(to-from)*p);
+  result.firstChild.nodeValue = formatter.format(value);
+  if(p<1)requestAnimationFrame(step);
+ }
+ requestAnimationFrame(step);
+}
+function draw(vals){
+ if(vals.length<2){spark.setAttribute('d','');return;}
+ const max=Math.max(...vals),min=Math.min(...vals);
+ const d=vals.map((v,i)=>`${i/(vals.length-1)*100},${40-(v-min)/(max-min||1)*40}`).join(' ');
+ spark.setAttribute('d','M'+d);
+}
+function calc(){
+ const P=parseFloat(price.value);
+ const a=parseInt(age.value);
+ if(!P||!a||a>=death){result.firstChild.nodeValue='–';tip.textContent='';spark.setAttribute('d','');return;}
+ const yrsRet=retire-a;
+ const FVret=Math.round(toRetire(P,yrsRet));
+ const FV80=Math.round(FVret*Math.pow(1+rate,death-retire));
+ 
+ const currentLang = document.documentElement.lang;
+ const formatter = new Intl.NumberFormat(currentLang, { 
+   style: 'currency', 
+   currency: 'USD',
+   minimumFractionDigits: 0,
+   maximumFractionDigits: 0 
+ });
+ 
+ // Create localized tooltip text
+ if (currentLang === 'es') {
+   tip.textContent = `${formatter.format(P)} (${translations[currentLang][`freq${freq.charAt(0).toUpperCase() + freq.slice(1)}`]}) → ${formatter.format(FVret)} ${translations[currentLang]['by']} ${retire}
+→ ${formatter.format(FV80)} ${translations[currentLang]['by']} ${death}`;
+ } else {
+   tip.textContent = `${formatter.format(P)} (${freq}) → ${formatter.format(FVret)} by ${retire}
+→ ${formatter.format(FV80)} by ${death}`;
+ }
+ 
+ const prev=parseInt(result.firstChild.textContent.replace(/[^0-9.-]/g,''))||0;
+ animate(prev,FVret);
+ const arr=[];
+ for(let i=0;i<=death-a;i++){
+  if(i<=yrsRet) arr.push(toRetire(P,i));
+  else arr.push(toRetire(P,yrsRet)*Math.pow(1+rate,i-yrsRet));
+ }
+ draw(arr);
+}
+
+// Initialize with detected language or default to English
+applyTranslations(detectLanguage());
+</script>
+</body>
+</html>
